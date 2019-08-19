@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Page Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" media="screen" href="main.css" />
+    <script src="main.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+</head>
+<body>
+
+<script>
+
+/* ************************************************************
+This script stores access logs in Sharepoint 2010 list.
+
+Requirements:
+- Sharepoint list named "Audiencia" with text columns: "Usuario" and "URL".
+
+How to use:
+- Add a <script/> reference to this file at Sharepoint Page or Master Page.
+************************************************************ */
+
+$(document).ready(function(){
+	setTimeout(function(){
+		RegistrarAcesso();
+	}, 2000);
+});
+
+function GetCurrentDateTime()
+{
+	var today = new Date();
+	var date = today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+	var time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+	var dateTime = date+' '+time;
+
+	return dateTime;
+}
+
+async function GetCurrentUser()
+{
+	console.log("Iniciou busca pelo usuário atual.");
+
+	try{
+		var userid= _spPageContextInfo.userId;
+		var requestUri = _spPageContextInfo.webAbsoluteUrl + "/_api/web/getuserbyid(" + userid + ")";
+		var requestHeaders = { "accept" : "application/json;odata=verbose" };
+		$.ajax({
+			url : requestUri,
+			contentType : "application/json;odata=verbose",
+			async: false,
+			headers : requestHeaders,
+			success : onSuccess,
+			error : onError
+		});
+
+		function onSuccess(data, request){
+			var loginName = data.d.Title;
+			console.log("Usuário encotrado: " + loginName);
+			return loginName;
+		}
+
+		function onError(error) {
+			console.log("Erro ao buscar usuário: " + error);
+			return "Não encontrado";
+		}
+	}
+	catch{
+		console.log("Executado fora do Sharepoint.");
+		return "Usuário de exemplo";
+	}
+}
+
+async function RegistrarAcesso()
+{  
+	console.log("Iniciou a inclusão do item");
+	var listName = "Audiencia";    
+	var currentUserLoginName;
+
+	var urlAtual = window.location.href;
+	var dtAcesso = GetCurrentDateTime();
+	var urlPrefix;
+
+	try{
+		urlPrefix = _spPageContextInfo.webAbsoluteUrl;
+	}
+	catch(){
+		console.log("Não foi possível encontrar o site.");
+	}
+	
+	/// Sharepoint Online
+	var urlAPI = urlPrefix + "/_api/web/lists/GetByTitle('" + listName + "')/items";
+
+	console.log("Iniciou busca pelo usuário atual.");
+
+	try{
+		var userid = _spPageContextInfo.userId;
+		var requestUri = _spPageContextInfo.webAbsoluteUrl + "/_api/web/getuserbyid(" + userid + ")";
+		var requestHeaders = { "accept" : "application/json;odata=verbose" };
+		$.ajax({
+			url : requestUri,
+			contentType : "application/json;odata=verbose",
+			async: false,
+			headers : requestHeaders,
+			success : onSuccess,
+			error : onError
+		});
+
+		function onSuccess(data, request){
+			var loginName = data.d.Title;
+			console.log("Usuário encotrado: " + loginName);
+			currentUserLoginName = loginName;
+		}
+
+		function onError(error) {
+			console.log("Erro ao buscar usuário: " + error);
+			currentUserLoginName = "Não encontrado";
+		}
+	}
+	catch{
+		console.log("Executado fora do Sharepoint.");
+		currentUserLoginName = "Usuário de exemplo";
+	}
+
+	console.log("Valor de currentUserLoginName: " + currentUserLoginName);
+	CreateListItem(urlAPI, listName, "Teste", currentUserLoginName, urlAtual);
+}  
+
+function CreateListItem(url, listName, title, usuario, urlAtual){
+	console.log("CreateListItem");
+
+	$.ajax({  
+		async: true, // Async by default is set to “true” load the script asynchronously  
+		// URL to post data into sharepoint list  
+		url: url,  
+		method: "POST", //Specifies the operation to create the list item  
+		data: JSON.stringify({  
+			'__metadata': {  
+				'type': 'SP.Data.' + listName + 'ListItem' // it defines the ListEnitityTypeName  
+			},  
+			//Pass the parameters
+			'Title': 'Teste inclusão',
+			'Usuario': usuario,  
+			'URL': urlAtual  
+		}),  
+		headers: {  
+			"accept": "application/json;odata=verbose", //It defines the Data format   
+			"content-type": "application/json;odata=verbose", //It defines the content type as JSON  
+			"X-RequestDigest": $("#__REQUESTDIGEST").val() //It gets the digest value   
+		},  
+		success: function(data) {  
+			console.log("Sucesso");  
+		},  
+		error: function(error) {  
+			console.log(JSON.stringify(error));  
+		}  
+	});  
+}
+
+
+</script>
+
+<button id="nmSalvarVisita" onclick="RegistrarAcesso()" type="button">Registrar acesso manual</button>
+<div id="ResultDiv"></div>
+
+</body>
+</html>
